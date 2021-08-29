@@ -1,7 +1,13 @@
 const express = require("express");
 const PORT = process.env.PORT || 3001;
 const app = express();
+// parse incoming string or array data
+app.use(express.urlencoded({ extended: true }));
+// parse incoming JSON data
+app.use(express.json());
 const { animals } = require("./data/animals");
+const fs = require("fs");
+const path = require("path");
 
 function filterByQuery(query, animalsArray) {
   let personalityTraitsArray = [];
@@ -38,6 +44,35 @@ function filterByQuery(query, animalsArray) {
     return filteredResults;
 }
 
+function createNewAnimal(body, animalsArray) {
+    // our function's main code will go here!
+    const animal = body;
+    animalsArray.push(animal);
+    fs.writeFileSync(
+        path.join(__dirname, "./data/animals.json"),
+        JSON.stringify({animals: animalsArray}, null, 2)
+    );
+
+    // return finished code to post route for response
+    return body;
+}
+
+function validateAnimal(animal) {
+    if (!animal.name || typeof animal.name !== "string") {
+        return false;
+    } 
+    if (!animal.species || typeof animal.species !== "string"){
+        return false;
+    }
+    if (!animal.diet || typeof animal.diet !== "string"){
+        return false;
+    }
+    if (!animal.personalityTraits || !Array.isArray(animal.personalityTraits)){
+        return false;
+    }
+    return true;
+};
+
 function findById(id, animalsArray) {
     const result = animalsArray.filter(animal => animal.id === id)[0];
     return result;
@@ -52,12 +87,31 @@ app.get("/api/animals", (req, res) => {
 });
 
 app.get("/api/animals/:id", (req, res) => {
-    const result =findById(req.params.id, animals);
+    const result = findById(req.params.id, animals);
     if (result) {
         res.json(result);
     }
     else {
         res.send(404);
+    }
+});
+
+app.post('/api/animals', (req, res) => {
+    // req.body is where our incoming content will be
+    // set id based on what the next index of the array will be
+    req.body.id = animals.length.toString();
+
+    // if any data is req.body is incorrect, send 400 error back
+    if (!validateAnimal(req.body)){
+        // response method to relay a messag to the client making the request and send them an HTTP status code and a message explaining what went wrong
+        res.status(400).send("The animal is not properly formatted.");
+    }
+    else {
+    // add animal to json file and animals array in this function
+    const animal = createNewAnimal(req.body, animals);
+
+    // original - res.json(req.body);
+    res.json(animal);
     }
 });
 
